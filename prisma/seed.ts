@@ -7,17 +7,21 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding database...');
 
-  // Admins
-  const admin1 = await prisma.user.create({
-    data: {
+  // Admire / Admins
+  const admin1 = await prisma.user.upsert({
+    where: { email: 'maxxgandy@gmail.com' },
+    update: {},
+    create: {
       role: 'ADMIN',
       name: 'mgandy',
       email: 'maxxgandy@gmail.com',
     },
   });
 
-  const admin2 = await prisma.user.create({
-    data: {
+  const admin2 = await prisma.user.upsert({
+    where: { email: 'angelagandy@gmail.com' },
+    update: {},
+    create: {
       role: 'ADMIN',
       name: 'agandy',
       email: 'angelagandy@gmail.com',
@@ -33,6 +37,14 @@ async function main() {
 
   const kids = await Promise.all(
     kidsData.map(async (k) => {
+      const existing = await prisma.user.findFirst({
+        where: { name: k.name },
+      });
+      if (existing) {
+        console.log(`Kid ${k.name} already exists. Skipping.`);
+        return existing;
+      }
+
       const hashedPin = await bcrypt.hash(k.pin, 10);
       return prisma.user.create({
         data: {
@@ -61,6 +73,14 @@ async function main() {
   ];
 
   for (const t of tasks) {
+    const existingTask = await prisma.task.findFirst({
+      where: { title: t.title },
+    });
+    if (existingTask) {
+      console.log(`Task "${t.title}" already exists. Skipping.`);
+      continue;
+    }
+
     const task = await prisma.task.create({
       data: {
         title: t.title,
@@ -93,6 +113,14 @@ async function main() {
   ];
 
   for (const r of rewards) {
+    const existingReward = await prisma.reward.findFirst({
+      where: { title: r.title },
+    });
+    if (existingReward) {
+      console.log(`Reward "${r.title}" already exists. Skipping.`);
+      continue;
+    }
+
     await prisma.reward.create({
       data: {
         title: r.title,
@@ -103,6 +131,11 @@ async function main() {
 
   // Example Transactions
   for (const kid of kids) {
+    const existingTx = await prisma.coinTransaction.findFirst({
+      where: { userId: kid.id, reason: 'Initial setup bonus!' },
+    });
+    if (existingTx) continue;
+
     await prisma.coinTransaction.create({
       data: {
         userId: kid.id,
