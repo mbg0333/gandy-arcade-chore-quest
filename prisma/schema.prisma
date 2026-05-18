@@ -108,6 +108,9 @@ model RewardRedemption {
   userId        String
   status        String   // "PENDING", "APPROVED", "REJECTED"
   adminComments String?
+  remainingAmount Float?
+  originalAmount  Float?
+  redemptionType  String?   // "CASH" | "TIME"
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

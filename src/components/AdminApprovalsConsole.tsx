@@ -10,6 +10,7 @@ import {
   rejectRedemption,
   approveCustomTaskRequest,
   rejectCustomTaskRequest,
+  recordDeduction,
 } from "@/app/actions/admin";
 
 interface AdminApprovalsConsoleProps {
@@ -29,6 +30,52 @@ export default function AdminApprovalsConsole({
   const [customRequests, setCustomRequests] = useState(initialCustomRequests);
   const [customCoins, setCustomCoins] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [deductInputs, setDeductInputs] = useState<Record<string, string>>({});
+
+  const handleDeductChange = (id: string, val: string) => {
+    setDeductInputs((prev) => ({ ...prev, [id]: val }));
+  };
+
+  const handleDeductSubmit = async (id: string, maxAmount: number) => {
+    const rawVal = deductInputs[id];
+    const val = parseFloat(rawVal);
+    if (isNaN(val) || val <= 0) {
+      alert("Please enter a valid positive number.");
+      return;
+    }
+    if (val > maxAmount) {
+      alert(`Deduction cannot exceed remaining balance of ${maxAmount}.`);
+      return;
+    }
+
+    setLoading((prev) => ({ ...prev, [id]: true }));
+    const result = await recordDeduction(id, val);
+    setLoading((prev) => ({ ...prev, [id]: false }));
+
+    if (result.success) {
+      setDeductInputs((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+
+      setRedemptions((prev) =>
+        prev.map((r) => {
+          if (r.id === id) {
+            const nextRem = Math.max(0, (r.remainingAmount ?? r.originalAmount ?? 0) - val);
+            return {
+              ...r,
+              remainingAmount: nextRem,
+              status: nextRem <= 0 ? "APPROVED" : "PENDING",
+            };
+          }
+          return r;
+        }).filter((r) => r.status === "PENDING")
+      );
+    } else if (result.error) {
+      alert(result.error);
+    }
+  };
 
   const handleAction = async (id: string, actionType: string, serverAction: () => Promise<any>, updateState: () => void) => {
     setLoading((prev) => ({ ...prev, [id]: true }));
@@ -238,45 +285,144 @@ export default function AdminApprovalsConsole({
               exit={{ opacity: 0, y: -10 }}
               className="flex flex-col gap-4"
             >
-              {redemptions.map((red) => (
-                <div
-                  key={red.id}
-                  className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border-2 bg-arcade-panel border-pink-900/50 rounded-xl gap-4"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-pink-400 uppercase font-arcade text-lg">
-                        {red.user.name}
-                      </span>
-                      <span className="text-xs text-gray-500 uppercase">• Prize CLAIM</span>
-                    </div>
-                    <h3 className="text-xl font-bold text-white mt-1">{red.reward.title}</h3>
-                  </div>
+              {redemptions.map((red) => {
+                const isCustom = red.redemptionType === "CASH" || red.redemptionType === "TIME";
+                const isCash = red.redemptionType === "CASH";
+                const remaining = red.remainingAmount ?? red.originalAmount ?? (isCash ? 0 : 0);
+                const original = red.originalAmount ?? remaining;
 
-                  <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end border-t border-gray-800 pt-3 sm:border-0 sm:pt-0">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black border border-gray-800 rounded-lg text-pink-400 font-bold font-arcade">
-                      -{red.reward.cost} <Coins className="w-4 h-4" />
+                return (
+                  <div
+                    key={red.id}
+                    className={`flex flex-col p-4 border-2 bg-arcade-panel rounded-xl gap-4 transition-all ${
+                      isCustom 
+                        ? isCash 
+                          ? "border-emerald-900/60 shadow-[0_0_10px_rgba(16,185,129,0.05)]" 
+                          : "border-cyan-900/60 shadow-[0_0_10px_rgba(6,182,212,0.05)]"
+                        : "border-pink-900/50"
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold uppercase font-arcade text-lg ${
+                            isCustom ? (isCash ? "text-emerald-400" : "text-cyan-400") : "text-pink-400"
+                          }`}>
+                            {red.user.name}
+                          </span>
+                          <span className="text-xs text-gray-500 uppercase">
+                            • {isCustom ? `${red.redemptionType} Balance` : "Prize CLAIM"}
+                          </span>
+                        </div>
+                        <h3 className="text-xl font-bold text-white mt-1">{red.reward.title}</h3>
+                        
+                        {isCustom && (
+                          <div className="mt-2.5 flex flex-wrap gap-4 text-xs">
+                            <div className="px-3 py-1.5 bg-black/60 border border-gray-800 rounded-lg">
+                              <span className="text-gray-500 font-arcade uppercase text-[9px] block">Original Amount</span>
+                              <span className="text-white font-bold text-sm">
+                                {isCash ? `$${original}` : `${original} mins`}
+                              </span>
+                            </div>
+                            <div className={`px-3 py-1.5 bg-black border rounded-lg ${
+                              isCash ? "border-emerald-500/20 text-emerald-400" : "border-cyan-500/20 text-cyan-400"
+                            }`}>
+                              <span className="text-gray-500 font-arcade uppercase text-[9px] block">Remaining Balance</span>
+                              <span className="font-arcade font-bold text-sm animate-pulse">
+                                {isCash ? `$${remaining.toFixed(2)}` : `${remaining} mins`}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end border-t border-gray-800 pt-3 sm:border-0 sm:pt-0">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black border border-gray-800 rounded-lg text-pink-400 font-bold font-arcade">
+                          -{red.reward.cost} <Coins className="w-4 h-4" />
+                        </div>
+
+                        {!isCustom ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleAction(red.id, "approve", () => approveRedemption(red.id), () => setRedemptions(redemptions.filter(r => r.id !== red.id)))}
+                              disabled={loading[red.id]}
+                              className="p-2 text-black bg-pink-500 hover:bg-pink-400 rounded-lg box-neon-pink transition-all cursor-pointer"
+                            >
+                              <Check className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleAction(red.id, "reject", () => rejectRedemption(red.id), () => setRedemptions(redemptions.filter(r => r.id !== red.id)))}
+                              disabled={loading[red.id]}
+                              className="p-2 text-white bg-red-600 hover:bg-red-500 rounded-lg transition-all cursor-pointer"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleAction(red.id, "reject", () => rejectRedemption(red.id), () => setRedemptions(redemptions.filter(r => r.id !== red.id)))}
+                            disabled={loading[red.id]}
+                            title="Reject and refund full coins amount"
+                            className="p-2 text-red-500 hover:bg-red-950/40 border border-red-900/60 rounded-lg transition-all cursor-pointer"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleAction(red.id, "approve", () => approveRedemption(red.id), () => setRedemptions(redemptions.filter(r => r.id !== red.id)))}
-                        disabled={loading[red.id]}
-                        className="p-2 text-black bg-pink-500 hover:bg-pink-400 rounded-lg box-neon-pink transition-all"
-                      >
-                        <Check className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleAction(red.id, "reject", () => rejectRedemption(red.id), () => setRedemptions(redemptions.filter(r => r.id !== red.id)))}
-                        disabled={loading[red.id]}
-                        className="p-2 text-white bg-red-600 hover:bg-red-500 rounded-lg transition-all"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
+                    {/* Partial Payout / Time Used Panel */}
+                    {isCustom && (
+                      <div className="mt-2 pt-3 border-t border-gray-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <span className="text-[10px] text-gray-500 uppercase font-arcade tracking-wider">
+                          Record Partial Payout or Time Usage:
+                        </span>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <div className="relative flex-1 sm:w-32">
+                            {isCash && (
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">$</span>
+                            )}
+                            <input
+                              type="number"
+                              step="any"
+                              min="0.1"
+                              max={remaining}
+                              placeholder={isCash ? "Amount" : "Minutes"}
+                              value={deductInputs[red.id] || ""}
+                              onChange={(e) => handleDeductChange(red.id, e.target.value)}
+                              className={`w-full p-2 text-xs text-white bg-black border border-gray-800 rounded-lg focus:outline-none ${
+                                isCash ? "pl-5 focus:border-emerald-500" : "focus:border-cyan-500"
+                              }`}
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={loading[red.id]}
+                            onClick={() => handleDeductSubmit(red.id, remaining)}
+                            className={`px-3 py-2 text-xs font-bold text-black uppercase rounded-lg transition-all font-arcade cursor-pointer disabled:opacity-50 ${
+                              isCash ? "bg-emerald-500 hover:bg-emerald-400" : "bg-cyan-500 hover:bg-cyan-400"
+                            }`}
+                          >
+                            {isCash ? "Payout" : "Use Time"}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={loading[red.id]}
+                            onClick={() => {
+                              handleDeductChange(red.id, remaining.toString());
+                            }}
+                            className="px-2 py-2 text-[10px] text-gray-400 hover:text-white border border-gray-800 hover:border-gray-700 rounded-lg transition-all font-arcade cursor-pointer"
+                          >
+                            Max
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {redemptions.length === 0 && (
                 <div className="p-8 text-center text-gray-500 border border-dashed border-gray-800 rounded-xl">
                   No pending prize claims.

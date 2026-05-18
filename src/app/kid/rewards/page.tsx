@@ -7,7 +7,7 @@ export default async function KidRewards() {
   const session = await getSession();
   const userId = session?.userId as string;
 
-  const [kid, rewards] = await Promise.all([
+  const [kid, rewards, activeBalances] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { coins: true },
@@ -16,9 +16,25 @@ export default async function KidRewards() {
       where: { isActive: true },
       orderBy: { cost: "asc" },
     }),
+    prisma.rewardRedemption.findMany({
+      where: {
+        userId,
+        status: "PENDING",
+        redemptionType: { in: ["CASH", "TIME"] },
+      },
+      include: { reward: true },
+    }),
   ]);
 
   if (!kid) return null;
+
+  const pendingCash = activeBalances
+    .filter((b) => b.redemptionType === "CASH")
+    .reduce((sum, b) => sum + (b.remainingAmount ?? 0), 0);
+
+  const pendingTime = activeBalances
+    .filter((b) => b.redemptionType === "TIME")
+    .reduce((sum, b) => sum + (b.remainingAmount ?? 0), 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,6 +44,45 @@ export default async function KidRewards() {
           Economy Rule: 50 🪙 = $1.00 Cash = 10 Min Screen Time
         </div>
       </div>
+
+      {/* Active Balances Mainframe Card */}
+      {(pendingCash > 0 || pendingTime > 0) && (
+        <div className="p-4 bg-black border-2 border-pink-500/30 rounded-xl flex flex-col sm:flex-row gap-4 justify-around shadow-[0_0_15px_rgba(236,72,153,0.1)]">
+          {pendingCash > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-500/10 rounded-lg border border-emerald-500/30 text-emerald-400 text-2xl font-bold font-arcade animate-pulse">
+                💵
+              </div>
+              <div>
+                <h4 className="text-[10px] font-bold uppercase font-arcade tracking-wider text-emerald-400">
+                  Unpaid Cash Balance
+                </h4>
+                <p className="text-xl font-bold text-white font-arcade mt-0.5">
+                  ${pendingCash.toFixed(2)}
+                </p>
+                <span className="text-[9px] text-gray-500 uppercase">Awaiting parent payout</span>
+              </div>
+            </div>
+          )}
+
+          {pendingTime > 0 && (
+            <div className="flex items-center gap-3 border-t sm:border-t-0 sm:border-l border-gray-800/80 pt-3 sm:pt-0 sm:pl-8">
+              <div className="p-2.5 bg-cyan-500/10 rounded-lg border border-cyan-500/30 text-cyan-400 text-2xl font-bold font-arcade animate-pulse">
+                🎮
+              </div>
+              <div>
+                <h4 className="text-[10px] font-bold uppercase font-arcade tracking-wider text-cyan-400">
+                  Screen Time Balance
+                </h4>
+                <p className="text-xl font-bold text-white font-arcade mt-0.5">
+                  {pendingTime} Mins
+                </p>
+                <span className="text-[9px] text-gray-500 uppercase">Available to use</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Quick Cash & Time Incrementor Terminal */}
       <QuickExchangeTerminal kidCoins={kid.coins} />

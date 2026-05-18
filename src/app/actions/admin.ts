@@ -229,6 +229,52 @@ export async function rejectRedemption(redemptionId: string) {
   return { success: true };
 }
 
+// 5b. Record Payout / Playtime Deduction for active balances
+export async function recordDeduction(redemptionId: string, deductAmount: number) {
+  await verifyAdmin();
+
+  if (deductAmount <= 0) {
+    return { error: "Deduction amount must be greater than zero." };
+  }
+
+  const redemption = await prisma.rewardRedemption.findUnique({
+    where: { id: redemptionId },
+    include: { reward: true, user: true },
+  });
+
+  if (!redemption || redemption.status !== "PENDING") {
+    return { error: "Active balance record not found." };
+  }
+
+  const currentRemaining = redemption.remainingAmount ?? 0;
+  const newRemaining = Math.max(0, currentRemaining - deductAmount);
+  const isFullyCompleted = newRemaining <= 0;
+
+  const typeLabel = redemption.redemptionType === "CASH" ? "Cash" : "Playtime";
+  const amountUnit = redemption.redemptionType === "CASH" ? `$${deductAmount}` : `${deductAmount}m`;
+  const remainingUnit = redemption.redemptionType === "CASH" ? `$${newRemaining}` : `${newRemaining}m`;
+
+  const logMessage = isFullyCompleted
+    ? `Admin fully paid out / marked all ${typeLabel} used: ${amountUnit} for ${redemption.user.name}. Balance cleared.`
+    : `Admin partially paid out / used ${amountUnit} of ${typeLabel} for ${redemption.user.name}. ${remainingUnit} remaining.`;
+
+  await prisma.$transaction([
+    prisma.rewardRedemption.update({
+      where: { id: redemptionId },
+      data: {
+        remainingAmount: newRemaining,
+        status: isFullyCompleted ? "APPROVED" : "PENDING",
+      },
+    }),
+    prisma.activityLog.create({
+      data: { message: logMessage },
+    }),
+  ]);
+
+  revalidatePath("/admin/approvals");
+  return { success: true };
+}
+
 // 6. Approve Custom Task Request
 export async function approveCustomTaskRequest(requestId: string, approvedReward: number) {
   await verifyAdmin();
