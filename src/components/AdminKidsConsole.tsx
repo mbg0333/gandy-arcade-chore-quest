@@ -191,6 +191,18 @@ export default function AdminKidsConsole({
 
   const level = selectedKid ? Math.floor(selectedKid.totalEarned / 100) + 1 : 1;
 
+  const unpaidCash = selectedKid
+    ? selectedKid.rewardRedemptions
+        .filter((r) => r.status === "PENDING" && r.redemptionType === "CASH")
+        .reduce((sum, r) => sum + (r.remainingAmount ?? r.originalAmount ?? 0), 0)
+    : 0;
+
+  const remainingTime = selectedKid
+    ? selectedKid.rewardRedemptions
+        .filter((r) => r.status === "PENDING" && r.redemptionType === "TIME")
+        .reduce((sum, r) => sum + (r.remainingAmount ?? r.originalAmount ?? 0), 0)
+    : 0;
+
   return (
     <div className="flex flex-col gap-6">
       {/* Super Admin Control Center */}
@@ -330,20 +342,48 @@ export default function AdminKidsConsole({
           ) : (
             <>
               {/* Player Selection Cards */}
-              <div className="grid grid-cols-3 gap-3">
-                {kids.map((kid) => (
-                  <button
-                    key={kid.id}
-                    onClick={() => setSelectedKidId(kid.id)}
-                    className={`p-4 border-2 rounded-xl transition-all font-arcade uppercase text-xl font-black ${
-                      selectedKid?.id === kid.id
-                        ? "border-pink-500 bg-pink-950/20 text-pink-400 box-neon-pink"
-                        : "border-gray-800 text-gray-500 hover:text-white"
-                    }`}
-                  >
-                    {kid.name}
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {kids.map((kid) => {
+                  const kidCash = kid.rewardRedemptions
+                    .filter((r) => r.status === "PENDING" && r.redemptionType === "CASH")
+                    .reduce((sum, r) => sum + (r.remainingAmount ?? r.originalAmount ?? 0), 0);
+
+                  const kidTime = kid.rewardRedemptions
+                    .filter((r) => r.status === "PENDING" && r.redemptionType === "TIME")
+                    .reduce((sum, r) => sum + (r.remainingAmount ?? r.originalAmount ?? 0), 0);
+
+                  return (
+                    <button
+                      key={kid.id}
+                      onClick={() => setSelectedKidId(kid.id)}
+                      className={`p-4 border-2 rounded-xl transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                        selectedKid?.id === kid.id
+                          ? "border-pink-500 bg-pink-950/20 text-pink-400 box-neon-pink"
+                          : "border-gray-800 text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      <span className="font-arcade uppercase text-lg font-black">{kid.name}</span>
+                      
+                      <div className="flex flex-wrap justify-center gap-1.5 text-[9px] uppercase font-bold mt-1">
+                        {kidCash > 0 && (
+                          <span className="text-emerald-400 bg-emerald-950/40 px-2 py-0.5 border border-emerald-900/50 rounded">
+                            Owed: ${kidCash.toFixed(2)}
+                          </span>
+                        )}
+                        {kidTime > 0 && (
+                          <span className="text-cyan-400 bg-cyan-950/40 px-2 py-0.5 border border-cyan-900/50 rounded">
+                            Time: {kidTime}m
+                          </span>
+                        )}
+                        {kidCash === 0 && kidTime === 0 && (
+                          <span className="text-gray-500 bg-black/40 px-2 py-0.5 border border-gray-900 rounded">
+                            Balanced
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
               {selectedKid && (
@@ -473,6 +513,14 @@ export default function AdminKidsConsole({
                             {selectedKid.rewardRedemptions.filter((r) => r.status === "APPROVED").length}
                           </span>
                         </div>
+                        <div className="bg-emerald-950/20 p-3 rounded-lg border border-emerald-900/60 text-emerald-400">
+                          <span className="text-[9px] text-emerald-500 block uppercase font-bold tracking-wider">Unpaid Cash Owed</span>
+                          <span className="text-xl font-black font-arcade text-white mt-0.5 block">${unpaidCash.toFixed(2)}</span>
+                        </div>
+                        <div className="bg-cyan-950/20 p-3 rounded-lg border border-cyan-900/60 text-cyan-400">
+                          <span className="text-[9px] text-cyan-500 block uppercase font-bold tracking-wider">Playtime Balance</span>
+                          <span className="text-xl font-black font-arcade text-white mt-0.5 block">{remainingTime} Mins</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -567,8 +615,15 @@ export default function AdminKidsConsole({
                                 </span>
                               )}
                               {red.status === "PENDING" && (
-                                <span className="flex items-center gap-1 text-xs font-bold text-yellow-500 font-arcade uppercase bg-yellow-950/20 border border-yellow-900/50 px-2.5 py-1 rounded">
-                                  PENDING
+                                <span className={`flex flex-col items-end gap-0.5 text-xs font-bold font-arcade uppercase bg-yellow-950/20 border border-yellow-900/50 px-2.5 py-1 rounded ${
+                                  red.redemptionType === "CASH" ? "text-emerald-400 border-emerald-900/50" : red.redemptionType === "TIME" ? "text-cyan-400 border-cyan-900/50" : "text-yellow-500"
+                                }`}>
+                                  <span>PENDING</span>
+                                  {(red.redemptionType === "CASH" || red.redemptionType === "TIME") && (
+                                    <span className="text-[8px] tracking-tight">
+                                      Bal: {red.redemptionType === "CASH" ? `$${red.remainingAmount ?? red.originalAmount ?? 0}` : `${red.remainingAmount ?? red.originalAmount ?? 0}m`}
+                                    </span>
+                                  )}
                                 </span>
                               )}
                             </div>
