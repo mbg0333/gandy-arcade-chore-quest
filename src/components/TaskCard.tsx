@@ -15,10 +15,29 @@ export default function TaskCard({ task }: TaskCardProps) {
   const [success, setSuccess] = useState(false);
   const [notes, setNotes] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [proofData, setProofData] = useState<string>("");
+  const [proofType, setProofType] = useState<string>("");
+  const [uploadingProof, setUploadingProof] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingProof(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setProofData(event.target.result as string);
+        setProofType(file.type);
+      }
+      setUploadingProof(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleComplete = async () => {
     setLoading(true);
-    const result = await submitTask(task.id, notes);
+    const result = await submitTask(task.id, notes, proofData || undefined, proofType || undefined);
     if (result.success) {
       setSuccess(true);
     }
@@ -93,10 +112,57 @@ export default function TaskCard({ task }: TaskCardProps) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+
+            {/* Proof of Completion Input */}
+            <div className="flex flex-col gap-2 p-3 bg-black/60 border border-gray-800 rounded-lg">
+              <label className="text-xs font-bold uppercase tracking-wider text-cyan-400 font-arcade">
+                Attach Proof (Photo or Video)
+              </label>
+              
+              {!proofData ? (
+                <div className="relative flex flex-col items-center justify-center py-4 border-2 border-dashed border-gray-700 rounded-lg hover:border-cyan-500 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <span className="text-sm font-semibold text-gray-400">
+                    {uploadingProof ? "Reading file..." : "📸 Take Photo or Video"}
+                  </span>
+                </div>
+              ) : (
+                <div className="relative flex flex-col items-center bg-gray-900 border border-gray-700 rounded-lg overflow-hidden p-2">
+                  {proofType.startsWith("image/") ? (
+                    <img 
+                      src={proofData} 
+                      alt="Proof preview" 
+                      className="max-h-48 w-full object-contain rounded"
+                    />
+                  ) : (
+                    <video 
+                      src={proofData} 
+                      controls 
+                      className="max-h-48 w-full object-contain rounded"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProofData("");
+                      setProofType("");
+                    }}
+                    className="mt-2 text-xs font-bold text-red-400 hover:text-red-300 font-arcade uppercase"
+                  >
+                    🗑️ Remove Proof
+                  </button>
+                </div>
+              )}
+            </div>
             
             <button
               onClick={handleComplete}
-              disabled={loading}
+              disabled={loading || uploadingProof}
               className="w-full py-3 text-lg font-bold text-black uppercase transition-all bg-green-500 hover:bg-green-400 rounded-lg box-neon-green font-arcade disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Submitting..." : "Mark Complete"}

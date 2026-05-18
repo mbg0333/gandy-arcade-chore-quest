@@ -65,6 +65,8 @@ model TaskSubmission {
   status       String   // "PENDING", "APPROVED", "REJECTED"
   kidNotes     String?
   adminComments String?
+  proofData    String?
+  proofType    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

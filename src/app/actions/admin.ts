@@ -76,7 +76,11 @@ export async function approveSubmission(submissionId: string) {
   await prisma.$transaction([
     prisma.taskSubmission.update({
       where: { id: submissionId },
-      data: { status: "APPROVED" },
+      data: { 
+        status: "APPROVED",
+        proofData: null,
+        proofType: null
+      },
     }),
     prisma.user.update({
       where: { id: submission.userId },
@@ -121,7 +125,11 @@ export async function rejectSubmission(submissionId: string) {
   await prisma.$transaction([
     prisma.taskSubmission.update({
       where: { id: submissionId },
-      data: { status: "REJECTED" },
+      data: { 
+        status: "REJECTED",
+        proofData: null,
+        proofType: null
+      },
     }),
     // Re-assign the task back to the user (since they failed/got rejected)
     prisma.taskAssignment.upsert({

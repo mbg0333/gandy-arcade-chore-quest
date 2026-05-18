@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-export async function submitTask(taskId: string, kidNotes?: string) {
+export async function submitTask(taskId: string, kidNotes?: string, proofData?: string, proofType?: string) {
   const session = await getSession();
   if (!session || session.role !== "KID") return { error: "Unauthorized" };
 
@@ -19,6 +19,8 @@ export async function submitTask(taskId: string, kidNotes?: string) {
       userId: session.userId as string,
       status: "PENDING",
       kidNotes,
+      proofData,
+      proofType,
     },
   });
 

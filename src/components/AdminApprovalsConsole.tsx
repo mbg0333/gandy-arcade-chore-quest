@@ -112,6 +112,29 @@ export default function AdminApprovalsConsole({
                         <span>"{sub.kidNotes}"</span>
                       </p>
                     )}
+                    
+                    {sub.proofData && (
+                      <div className="mt-3 p-3 bg-black/40 border border-gray-800 rounded-lg flex flex-col gap-2 max-w-sm">
+                        <span className="text-xs font-bold uppercase tracking-wider text-cyan-400 font-arcade">
+                          🔍 Attached Proof:
+                        </span>
+                        {sub.proofType?.startsWith("image/") ? (
+                          <a href={sub.proofData} target="_blank" rel="noopener noreferrer" className="cursor-zoom-in block">
+                            <img 
+                              src={sub.proofData} 
+                              alt="Submission proof" 
+                              className="max-h-48 rounded object-contain border border-gray-800 hover:border-cyan-500 transition-colors"
+                            />
+                          </a>
+                        ) : (
+                          <video 
+                            src={sub.proofData} 
+                            controls 
+                            className="max-h-48 rounded object-contain border border-gray-800 w-full"
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end border-t border-gray-800 pt-3 sm:border-0 sm:pt-0">
