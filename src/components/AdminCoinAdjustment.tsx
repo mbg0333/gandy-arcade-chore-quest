@@ -26,7 +26,9 @@ export default function AdminCoinAdjustment({ kidId, kidName }: AdminCoinAdjustm
     setLoading(true);
     setError("");
 
-    const adjustValue = isPositive ? amount : -amount;
+    // If parent typed a negative number, keep it negative regardless of clicking Award or Deduct.
+    // Otherwise, Award is positive and Deduct is negative.
+    const adjustValue = amount < 0 ? amount : (isPositive ? amount : -amount);
     const result = await adjustCoins(kidId, adjustValue, reason);
     setLoading(false);
 
@@ -77,10 +79,10 @@ export default function AdminCoinAdjustment({ kidId, kidName }: AdminCoinAdjustm
           <div className="flex items-center gap-2">
             <input
               type="number"
-              min="1"
+              min="-1000"
               max="1000"
               value={amount}
-              onChange={(e) => setAmount(Math.max(1, Number(e.target.value)))}
+              onChange={(e) => setAmount(Number(e.target.value))}
               className="w-20 px-2 py-1 text-white bg-black border border-gray-700 rounded text-center focus:outline-none focus:border-cyan-500 font-arcade"
             />
             <Coins className="w-4 h-4 text-yellow-400 flex-shrink-0" />
