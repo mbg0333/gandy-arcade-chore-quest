@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Shield, KeyRound, Mail, ArrowLeft } from "lucide-react";
-import { loginAdmin } from "@/app/actions/auth";
+import { loginAdmin, verifyAdminMfa } from "@/app/actions/auth";
 import Link from "next/link";
 
 export default function AdminLoginForm() {
@@ -26,18 +26,28 @@ export default function AdminLoginForm() {
     setLoading(true);
     setError("");
 
-    // Simulate sending 2FA
-    setTimeout(() => {
-      const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
-      setMockCode(generatedCode);
-      setStep(2);
+    try {
+      const result = await loginAdmin(email);
+      if (result?.error) {
+        setError(result.error);
+      } else if (result?.success) {
+        if (result.fallbackCode) {
+          setMockCode(result.fallbackCode);
+        } else {
+          setMockCode(""); // Real email sent
+        }
+        setStep(2);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to initiate login request.");
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code !== mockCode) {
+    if (mockCode && code !== mockCode) {
       setError("Invalid 2FA code. Try again!");
       return;
     }
@@ -45,11 +55,15 @@ export default function AdminLoginForm() {
     setLoading(true);
     setError("");
 
-    const result = await loginAdmin(email);
-    setLoading(false);
-
-    if (result?.error) {
-      setError(result.error);
+    try {
+      const result = await verifyAdminMfa(email, code);
+      if (result?.error) {
+        setError(result.error);
+      }
+    } catch (err: any) {
+      setError(err.message || "Verification failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -119,9 +133,15 @@ export default function AdminLoginForm() {
             </button>
           </div>
 
-          <div className="w-full p-4 mb-4 text-center border-2 border-dashed border-yellow-500/50 bg-yellow-950/20 rounded-lg text-yellow-400 text-xs font-mono">
-            [MOCK 2FA LOG] Code sent to email: <span className="font-bold text-sm bg-yellow-400 text-black px-2 py-0.5 rounded">{mockCode}</span>
-          </div>
+          {mockCode ? (
+            <div className="w-full p-4 mb-4 text-center border-2 border-dashed border-yellow-500/50 bg-yellow-950/20 rounded-lg text-yellow-400 text-xs font-mono">
+              [MOCK 2FA LOG] Code sent to email: <span className="font-bold text-sm bg-yellow-400 text-black px-2 py-0.5 rounded">{mockCode}</span>
+            </div>
+          ) : (
+            <div className="w-full p-4 mb-4 text-center border-2 border-dashed border-green-500/50 bg-green-950/20 rounded-lg text-green-400 text-xs font-arcade">
+              🔐 SECURE 2FA CODE SENT TO YOUR EMAIL!
+            </div>
+          )}
 
           <div className="flex flex-col gap-1">
             <label className="text-xs uppercase font-bold text-gray-400 tracking-wider">Verification Code</label>

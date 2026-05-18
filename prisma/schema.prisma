@@ -19,6 +19,8 @@ model User {
   tasksCompleted Int       @default(0) // Lifetime tasks completed
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  mfaCode        String?
+  mfaExpires     DateTime?
 
   assignedTasks     TaskAssignment[]
   taskSubmissions   TaskSubmission[]
