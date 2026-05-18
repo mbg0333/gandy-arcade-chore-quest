@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(uuid())
+  role           String    // "ADMIN" | "KID"
+  name           String
+  pin            String?   // Hashed PIN for kids
+  email          String?   @unique // For admins
+  coins          Int       @default(0) // Total current coins for kids
+  totalEarned    Int       @default(0) // Total lifetime coins earned
+  tasksCompleted Int       @default(0) // Lifetime tasks completed
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  assignedTasks     TaskAssignment[]
+  taskSubmissions   TaskSubmission[]
+  rewardRedemptions RewardRedemption[]
+  transactions      CoinTransaction[]
+  customTaskRequests CustomTaskRequest[]
+  notifications      Notification[]
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  category    String   // "CHORE", "WORKOUT", "SCHOOL", "BEHAVIOR", "CUSTOM", "OTHER"
+  isOptional  Boolean  @default(false)
+  rewardAmount Int     @default(0)
+  hasReward   Boolean  @default(true)
+  dueDate     DateTime?
+  isRepeat    Boolean  @default(false)
+  requiresApproval Boolean @default(true)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments TaskAssignment[]
+  submissions TaskSubmission[]
+}
+
+model TaskAssignment {
+  id        String   @id @default(uuid())
+  taskId    String
+  userId    String
+  task      Task     @relation(fields: [taskId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, userId])
+}
+
+model TaskSubmission {
+  id           String   @id @default(uuid())
+  taskId       String
+  userId       String
+  status       String   // "PENDING", "APPROVED", "REJECTED"
+  kidNotes     String?
+  adminComments String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Reward {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  cost        Int
+  quantity    Int?     // null means unlimited
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  redemptions RewardRedemption[]
+  assignments RewardAssignment[]
+}
+
+model RewardAssignment {
+  id        String   @id @default(uuid())
+  rewardId  String
+  userId    String   // If a reward is specifically assigned to a kid, if none, it's global
+  reward    Reward   @relation(fields: [rewardId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([rewardId, userId])
+}
+
+model RewardRedemption {
+  id            String   @id @default(uuid())
+  rewardId      String
+  userId        String
+  status        String   // "PENDING", "APPROVED", "REJECTED"
+  adminComments String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  reward Reward @relation(fields: [rewardId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model CoinTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  amount      Int      // positive for earn, negative for spend
+  reason      String
+  adminId     String?  // if admin manually adjusted
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model CustomTaskRequest {
+  id             String   @id @default(uuid())
+  userId         String
+  title          String
+  description    String?
+  suggestedCoins Int
+  status         String   // "PENDING", "APPROVED", "REJECTED"
+  adminComments  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?  // null if global admin alert
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  message   String
+  createdAt DateTime @default(now())
+}

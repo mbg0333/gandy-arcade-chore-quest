@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --color-arcade-bg: #0d001a;
+  --color-arcade-panel: #1a0b2e;
+  --color-arcade-neon-pink: #ff00ff;
+  --color-arcade-neon-blue: #00ffff;
+  --color-arcade-neon-green: #39ff14;
+  --color-arcade-neon-yellow: #ffea00;
+  --color-arcade-neon-red: #ff003c;
+  
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-arcade: 'Outfit', 'Inter', sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: #0d001a;
+    --foreground: #ffffff;
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  background-image: 
+    linear-gradient(rgba(255, 0, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 0, 255, 0.05) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+/* Animations */
+@keyframes coin-spin {
+  0% { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
+}
+
+.animate-coin {
+  animation: coin-spin 1.5s linear infinite;
+}
+
+.text-neon-pink {
+  text-shadow: 0 0 5px #ff00ff, 0 0 10px #ff00ff, 0 0 20px #ff00ff;
+}
+.text-neon-blue {
+  text-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff, 0 0 20px #00ffff;
+}
+.text-neon-green {
+  text-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14, 0 0 20px #39ff14;
+}
+.text-neon-yellow {
+  text-shadow: 0 0 5px #ffea00, 0 0 10px #ffea00, 0 0 20px #ffea00;
+}
+
+.box-neon-pink {
+  box-shadow: 0 0 5px #ff00ff, inset 0 0 5px #ff00ff;
+  border: 2px solid #ff00ff;
+}
+.box-neon-blue {
+  box-shadow: 0 0 5px #00ffff, inset 0 0 5px #00ffff;
+  border: 2px solid #00ffff;
+}
+.box-neon-green {
+  box-shadow: 0 0 5px #39ff14, inset 0 0 5px #39ff14;
+  border: 2px solid #39ff14;
+}
+
+.arcade-btn {
+  @apply relative overflow-hidden font-bold tracking-wider uppercase transition-all duration-200 rounded-md;
+}
+
+.arcade-btn:active {
+  transform: scale(0.95);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
