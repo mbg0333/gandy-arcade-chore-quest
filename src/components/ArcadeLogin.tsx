@@ -96,8 +96,8 @@ export default function ArcadeLogin() {
           </div>
 
           <div className="w-full p-4 mb-6 text-center bg-black border-2 rounded-lg border-cyan-500 shadow-[0_0_15px_rgba(0,255,255,0.5)]">
-            <div className="text-3xl tracking-[1em] text-white font-mono h-10 flex justify-center items-center">
-              {pin.padEnd(6, "_").split("").join(" ")}
+            <div className="text-2xl tracking-[0.5em] text-white font-mono h-10 flex justify-center items-center pl-[0.25em]">
+              {pin.padEnd(6, "_")}
             </div>
           </div>
 

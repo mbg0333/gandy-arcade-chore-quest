@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 
 // Verification Helper
 async function verifyAdmin() {
@@ -304,3 +305,309 @@ export async function rejectCustomTaskRequest(requestId: string) {
   revalidatePath("/admin/approvals");
   return { success: true };
 }
+
+// 8. Update Profile Picture (Digital Avatar Creator)
+export async function updateProfilePicture(profilePic: string, kidId?: string) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+
+  const targetId = kidId && session.role === "ADMIN" ? kidId : (session.userId as string);
+
+  await prisma.user.update({
+    where: { id: targetId },
+    data: { profilePic },
+  });
+
+  const user = await prisma.user.findUnique({
+    where: { id: targetId },
+    select: { name: true },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      message: `${user?.name || "Player"} updated their profile picture avatar!`,
+    },
+  });
+
+  revalidatePath("/admin/kids");
+  revalidatePath("/kid/dashboard");
+  revalidatePath("/kid/leaderboard");
+  return { success: true };
+}
+
+// 9. Super Admin Reset Current Coins (maxxgandy@gmail.com only)
+export async function resetCurrentCoins() {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN" || !session.userId) {
+    throw new Error("Unauthorized: Super Admin access required.");
+  }
+
+  const admin = await prisma.user.findUnique({
+    where: { id: session.userId as string },
+  });
+
+  if (!admin || admin.email !== "maxxgandy@gmail.com") {
+    throw new Error("Unauthorized: Super Admin access required.");
+  }
+
+  await prisma.user.updateMany({
+    where: { role: "KID" },
+    data: { coins: 0 },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      message: "SYSTEM RESET: Super Admin reset all active player coins to 0!",
+    },
+  });
+
+  revalidatePath("/admin/kids");
+  revalidatePath("/kid/dashboard");
+  return { success: true };
+}
+
+// 10. Super Admin Reset Lifetime Accumulation (maxxgandy@gmail.com only)
+export async function resetLifetimeAccumulation() {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN" || !session.userId) {
+    throw new Error("Unauthorized: Super Admin access required.");
+  }
+
+  const admin = await prisma.user.findUnique({
+    where: { id: session.userId as string },
+  });
+
+  if (!admin || admin.email !== "maxxgandy@gmail.com") {
+    throw new Error("Unauthorized: Super Admin access required.");
+  }
+
+  await prisma.user.updateMany({
+    where: { role: "KID" },
+    data: { 
+      totalEarned: 0,
+      tasksCompleted: 0
+    },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      message: "SYSTEM RESET: Super Admin reset all active player lifetime earned XP to 0!",
+    },
+  });
+
+  revalidatePath("/admin/kids");
+  revalidatePath("/kid/dashboard");
+  revalidatePath("/kid/leaderboard");
+  return { success: true };
+}
+
+// 10b. Super Admin Purge Quests / Missions (maxxgandy@gmail.com only)
+export async function purgeMissions() {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN" || !session.userId) {
+    throw new Error("Unauthorized: Super Admin access required.");
+  }
+
+  const admin = await prisma.user.findUnique({
+    where: { id: session.userId as string },
+  });
+
+  if (!admin || admin.email !== "maxxgandy@gmail.com") {
+    throw new Error("Unauthorized: Super Admin access required.");
+  }
+
+  await prisma.taskSubmission.deleteMany({});
+  await prisma.taskAssignment.deleteMany({});
+  await prisma.customTaskRequest.deleteMany({});
+  await prisma.task.deleteMany({});
+
+  await prisma.activityLog.create({
+    data: {
+      message: "SYSTEM RESET: Super Admin purged all missions, assignments, and submissions from the database!",
+    },
+  });
+
+  revalidatePath("/admin/kids");
+  revalidatePath("/admin/tasks");
+  revalidatePath("/admin/approvals");
+  revalidatePath("/kid/dashboard");
+  revalidatePath("/kid/tasks");
+  return { success: true };
+}
+
+// 10c. Super Admin Purge Prizes / Shop (maxxgandy@gmail.com only)
+export async function purgePrizes() {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN" || !session.userId) {
+    throw new Error("Unauthorized: Super Admin access required.");
+  }
+
+  const admin = await prisma.user.findUnique({
+    where: { id: session.userId as string },
+  });
+
+  if (!admin || admin.email !== "maxxgandy@gmail.com") {
+    throw new Error("Unauthorized: Super Admin access required.");
+  }
+
+  await prisma.rewardRedemption.deleteMany({});
+  await prisma.reward.deleteMany({});
+
+  await prisma.activityLog.create({
+    data: {
+      message: "SYSTEM RESET: Super Admin purged all store prizes and redemptions from the database!",
+    },
+  });
+
+  revalidatePath("/admin/kids");
+  revalidatePath("/admin/rewards");
+  revalidatePath("/admin/approvals");
+  revalidatePath("/kid/dashboard");
+  revalidatePath("/kid/rewards");
+  return { success: true };
+}
+
+// 10d. Super Admin Clear Ledger / Transactions (maxxgandy@gmail.com only)
+export async function clearLedgerLogs() {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN" || !session.userId) {
+    throw new Error("Unauthorized: Super Admin access required.");
+  }
+
+  const admin = await prisma.user.findUnique({
+    where: { id: session.userId as string },
+  });
+
+  if (!admin || admin.email !== "maxxgandy@gmail.com") {
+    throw new Error("Unauthorized: Super Admin access required.");
+  }
+
+  await prisma.coinTransaction.deleteMany({});
+  await prisma.notification.deleteMany({});
+
+  await prisma.activityLog.create({
+    data: {
+      message: "SYSTEM RESET: Super Admin cleared the coin ledger and transaction logs!",
+    },
+  });
+
+  revalidatePath("/admin/kids");
+  revalidatePath("/admin/transactions");
+  revalidatePath("/kid/dashboard");
+  return { success: true };
+}
+
+
+// 11. Create User
+export async function createUser(data: { name: string; role: string; email?: string; pin?: string }) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") {
+    throw new Error("Unauthorized");
+  }
+
+  const { name, role, email, pin } = data;
+
+  if (!name.trim()) return { error: "User name is required." };
+  if (role !== "ADMIN" && role !== "KID") return { error: "Invalid role." };
+
+  if (role === "ADMIN") {
+    if (!email || !email.trim()) return { error: "Admin email is required." };
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) return { error: "A user with this email already exists." };
+
+    await prisma.user.create({
+      data: {
+        name,
+        role: "ADMIN",
+        email: email.toLowerCase().trim(),
+      },
+    });
+  } else {
+    if (!pin || pin.length < 4) return { error: "PIN must be at least 4 digits." };
+    const existing = await prisma.user.findFirst({ where: { name } });
+    if (existing) return { error: "A player with this name already exists." };
+
+    const hashedPin = await bcrypt.hash(pin, 10);
+    await prisma.user.create({
+      data: {
+        name,
+        role: "KID",
+        pin: hashedPin,
+        coins: 0,
+        totalEarned: 0,
+      },
+    });
+  }
+
+  revalidatePath("/admin/kids");
+  return { success: true };
+}
+
+// 12. Modify User
+export async function updateUser(userId: string, data: { name?: string; role?: string; email?: string; pin?: string; coins?: number; totalEarned?: number }) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") {
+    throw new Error("Unauthorized");
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { error: "User not found." };
+
+  const updateData: any = {};
+  if (data.name) updateData.name = data.name;
+  
+  if (user.role === "ADMIN") {
+    if (data.email) {
+      updateData.email = data.email.toLowerCase().trim();
+    }
+  } else {
+    if (data.pin) {
+      updateData.pin = await bcrypt.hash(data.pin, 10);
+    }
+    if (data.coins !== undefined) {
+      updateData.coins = data.coins;
+    }
+    if (data.totalEarned !== undefined) {
+      updateData.totalEarned = data.totalEarned;
+    }
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: updateData,
+  });
+
+  revalidatePath("/admin/kids");
+  revalidatePath("/kid/dashboard");
+  revalidatePath("/kid/leaderboard");
+  return { success: true };
+}
+
+// 13. Delete User
+export async function deleteUser(userId: string) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") {
+    throw new Error("Unauthorized");
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { error: "User not found." };
+
+  // Strict: prevent deleting self
+  if (user.id === session.userId) return { error: "You cannot delete your own admin account!" };
+
+  // Cascade delete tasks/transactions/etc manually if SQLite is used
+  await prisma.taskSubmission.deleteMany({ where: { userId } });
+  await prisma.taskAssignment.deleteMany({ where: { userId } });
+  await prisma.customTaskRequest.deleteMany({ where: { userId } });
+  await prisma.rewardRedemption.deleteMany({ where: { userId } });
+  await prisma.coinTransaction.deleteMany({ where: { userId } });
+  await prisma.notification.deleteMany({ where: { userId } });
+
+  await prisma.user.delete({ where: { id: userId } });
+
+  revalidatePath("/admin/kids");
+  revalidatePath("/kid/leaderboard");
+  return { success: true };
+}
+

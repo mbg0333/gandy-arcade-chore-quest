@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Coins, LogOut, Home, ListTodo, Gift, Activity, Trophy } from "lucide-react";
 import { logout } from "@/app/actions/auth";
+import KidAvatarHeader from "@/components/KidAvatarHeader";
 
 export default async function KidLayout({
   children,
@@ -21,9 +22,7 @@ export default async function KidLayout({
       <header className="sticky top-0 z-50 p-4 border-b-2 bg-arcade-panel border-cyan-500 box-neon-blue">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-10 h-10 font-bold bg-pink-600 rounded-full font-arcade text-white shadow-[0_0_10px_#ff00ff] flex-shrink-0">
-              {kid.name.charAt(0)}
-            </div>
+            <KidAvatarHeader kid={{ id: kid.id, name: kid.name, profilePic: kid.profilePic }} />
             <span className="hidden text-xl font-bold uppercase sm:inline font-arcade text-neon-pink mr-4">
               {kid.name}
             </span>

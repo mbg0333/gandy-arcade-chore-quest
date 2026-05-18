@@ -46,6 +46,31 @@ export default function AdminApprovalsConsole({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Coin Value Estimator Banner */}
+      <div className="flex flex-col sm:flex-row justify-between items-center p-4 bg-black border-2 border-yellow-500/30 rounded-xl gap-4 shadow-[0_0_15px_rgba(234,179,8,0.15)]">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-yellow-500/10 rounded-lg border border-yellow-500/30 text-yellow-400">
+            <Coins className="w-6 h-6 animate-coin" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold uppercase font-arcade tracking-wider text-yellow-400">
+              Pending Payout Estimator
+            </h4>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Based on the standard arcade value of <strong>50 coins = $1.00</strong> ($0.02 per coin)
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-bold font-arcade text-yellow-400">
+            ${(submissions.reduce((sum, s) => sum + s.task.rewardAmount, 0) * 0.02).toFixed(2)}
+          </div>
+          <div className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">
+            For {submissions.reduce((sum, s) => sum + s.task.rewardAmount, 0)} total pending coins
+          </div>
+        </div>
+      </div>
+
       {/* Navigation Tabs */}
       <div className="grid grid-cols-3 gap-2 p-1 bg-black border border-gray-800 rounded-xl">
         <button
@@ -91,27 +116,63 @@ export default function AdminApprovalsConsole({
               exit={{ opacity: 0, y: -10 }}
               className="flex flex-col gap-4"
             >
-              {submissions.map((sub) => (
-                <div
-                  key={sub.id}
-                  className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border-2 bg-arcade-panel border-green-900/50 rounded-xl gap-4"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-green-400 uppercase font-arcade text-lg">
-                        {sub.user.name}
-                      </span>
-                      <span className="text-xs text-gray-500 uppercase">
-                        • {sub.task.category}
-                      </span>
-                    </div>
-                    <h3 className="text-xl font-bold text-white mt-1">{sub.task.title}</h3>
-                    {sub.kidNotes && (
-                      <p className="mt-2 text-sm text-gray-400 flex items-start gap-1.5 bg-black/40 p-2.5 rounded-lg border border-gray-800">
-                        <MessageSquare className="w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0" />
-                        <span>"{sub.kidNotes}"</span>
-                      </p>
-                    )}
+              {submissions.map((sub) => {
+                let displayDescription = sub.task.description || "";
+                let subtasksList: string[] = [];
+                let isTaskBundle = false;
+
+                try {
+                  if (sub.task.description && sub.task.description.startsWith("{")) {
+                    const parsed = JSON.parse(sub.task.description);
+                    if (parsed.description !== undefined && Array.isArray(parsed.subtasks)) {
+                      isTaskBundle = true;
+                      displayDescription = parsed.description;
+                      subtasksList = parsed.subtasks;
+                    }
+                  }
+                } catch (e) {
+                  // Keep default
+                }
+
+                return (
+                  <div
+                    key={sub.id}
+                    className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border-2 bg-arcade-panel border-green-900/50 rounded-xl gap-4"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-green-400 uppercase font-arcade text-lg">
+                          {sub.user.name}
+                        </span>
+                        <span className="text-xs text-gray-500 uppercase">
+                          • {sub.task.category}
+                        </span>
+                        {isTaskBundle && (
+                          <span className="px-1.5 py-0.5 text-[9px] font-arcade font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 rounded uppercase">
+                            📦 BUNDLE
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-xl font-bold text-white mt-1">{sub.task.title}</h3>
+                      
+                      {isTaskBundle && subtasksList.length > 0 && (
+                        <div className="mt-3 p-3 bg-black/40 border border-gray-800 rounded-lg flex flex-col gap-1.5 max-w-sm">
+                          <span className="text-[10px] uppercase font-bold text-gray-500 font-arcade">📦 Completed Sub-tasks checklist:</span>
+                          {subtasksList.map((item, i) => (
+                            <div key={i} className="flex items-center gap-2 text-xs text-cyan-400 font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                              <span>{item}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {sub.kidNotes && (
+                        <p className="mt-2 text-sm text-gray-400 flex items-start gap-1.5 bg-black/40 p-2.5 rounded-lg border border-gray-800">
+                          <MessageSquare className="w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0" />
+                          <span>"{sub.kidNotes}"</span>
+                        </p>
+                      )}
                     
                     {sub.proofData && (
                       <div className="mt-3 p-3 bg-black/40 border border-gray-800 rounded-lg flex flex-col gap-2 max-w-sm">
@@ -160,7 +221,7 @@ export default function AdminApprovalsConsole({
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
               {submissions.length === 0 && (
                 <div className="p-8 text-center text-gray-500 border border-dashed border-gray-800 rounded-xl">
                   No pending quest completions.

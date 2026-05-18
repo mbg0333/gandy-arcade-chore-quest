@@ -4,12 +4,14 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Coins, Plus, Trash2, Edit2, X, AlertCircle } from "lucide-react";
 import { createReward, updateReward, deleteReward } from "@/app/actions/manageRewards";
+import { compressImage } from "@/lib/image";
 
 interface Reward {
   id: string;
   title: string;
   description: string | null;
   cost: number;
+  image?: string | null;
 }
 
 export default function AdminRewardsConsole({ rewards }: { rewards: Reward[] }) {
@@ -18,6 +20,7 @@ export default function AdminRewardsConsole({ rewards }: { rewards: Reward[] }) 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [cost, setCost] = useState(100);
+  const [image, setImage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,6 +29,7 @@ export default function AdminRewardsConsole({ rewards }: { rewards: Reward[] }) 
     setTitle("");
     setDescription("");
     setCost(100);
+    setImage("");
     setError("");
     setIsOpen(true);
   };
@@ -35,6 +39,7 @@ export default function AdminRewardsConsole({ rewards }: { rewards: Reward[] }) 
     setTitle(reward.title);
     setDescription(reward.description || "");
     setCost(reward.cost);
+    setImage(reward.image || "");
     setError("");
     setIsOpen(true);
   };
@@ -53,6 +58,7 @@ export default function AdminRewardsConsole({ rewards }: { rewards: Reward[] }) 
       title,
       description,
       cost,
+      image: image || undefined,
     };
 
     let result;
@@ -121,6 +127,35 @@ export default function AdminRewardsConsole({ rewards }: { rewards: Reward[] }) 
                 </div>
               )}
 
+              {!editingReward && rewards.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs uppercase font-bold text-gray-400">Load Prize Template (Optional)</label>
+                  <select
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      if (selectedId) {
+                        const template = rewards.find((r) => r.id === selectedId);
+                        if (template) {
+                          setTitle(template.title);
+                          setDescription(template.description || "");
+                          setCost(template.cost);
+                          setImage(template.image || "");
+                        }
+                      }
+                    }}
+                    className="p-3 text-white bg-black border border-gray-700 rounded-lg focus:outline-none focus:border-pink-500 font-bold"
+                    defaultValue=""
+                  >
+                    <option value="">-- Start from Scratch --</option>
+                    {rewards.map((reward) => (
+                      <option key={reward.id} value={reward.id}>
+                        {reward.title} ({reward.cost} Coins)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="flex flex-col gap-1">
                 <label className="text-xs uppercase font-bold text-gray-400">Prize Name</label>
                 <input
@@ -142,6 +177,56 @@ export default function AdminRewardsConsole({ rewards }: { rewards: Reward[] }) 
                   className="p-3 text-white bg-black border border-gray-700 rounded-lg focus:outline-none focus:border-pink-500 resize-none"
                   rows={3}
                 />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs uppercase font-bold text-gray-400">Prize Picture (Optional)</label>
+                <div className="flex flex-col gap-3">
+                  {image ? (
+                    <div className="relative w-full h-40 border border-gray-700 bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                      <img
+                        src={image}
+                        alt="Prize Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setImage("")}
+                        className="absolute top-2 right-2 p-1.5 bg-red-600 hover:bg-red-500 text-white rounded-full shadow-lg transition-all"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-800 hover:border-pink-500 bg-black/40 rounded-lg cursor-pointer transition-colors group">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Plus className="w-8 h-8 text-gray-500 group-hover:text-pink-500 mb-2 transition-colors" />
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                          Click to Upload Picture
+                        </p>
+                        <p className="text-[10px] text-gray-650 uppercase tracking-widest mt-1">
+                          PNG, JPG, or WEBP
+                        </p>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            try {
+                              const compressedBase64 = await compressImage(file, 600, 400);
+                              setImage(compressedBase64);
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-col gap-1">
@@ -178,6 +263,15 @@ export default function AdminRewardsConsole({ rewards }: { rewards: Reward[] }) 
             className="flex flex-col p-4 border-2 border-gray-800 bg-arcade-panel rounded-xl justify-between"
           >
             <div>
+              {reward.image && (
+                <div className="w-full h-40 border border-gray-800 bg-black rounded-lg overflow-hidden mb-3 shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+                  <img
+                    src={reward.image}
+                    alt={reward.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold text-white">{reward.title}</h3>
                 <div className="flex items-center gap-1 px-2.5 py-1 bg-black border border-yellow-500/20 rounded-md font-arcade font-bold text-yellow-400 text-sm">

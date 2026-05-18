@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider  = "sqlite"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -21,6 +20,7 @@ model User {
   updatedAt      DateTime  @updatedAt
   mfaCode        String?
   mfaExpires     DateTime?
+  profilePic     String?   // Base64 encoded profile picture
 
   assignedTasks     TaskAssignment[]
   taskSubmissions   TaskSubmission[]
@@ -80,6 +80,7 @@ model Reward {
   id          String   @id @default(uuid())
   title       String
   description String?
+  image       String?  // Base64 encoded prize picture
   cost        Int
   quantity    Int?     // null means unlimited
   isActive    Boolean  @default(true)

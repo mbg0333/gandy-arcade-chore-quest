@@ -41,9 +41,21 @@ export default function RewardCard({ reward, kidCoins }: { reward: any; kidCoins
         canAfford ? "border-pink-500 box-neon-pink" : "border-gray-800 opacity-70"
       }`}
     >
+      {reward.image && (
+        <div className="w-full h-44 border border-gray-800 bg-black rounded-lg overflow-hidden mb-4 shadow-[0_0_10px_rgba(0,0,0,0.5)]">
+          <img
+            src={reward.image}
+            alt={reward.title}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <Gift className={`w-8 h-8 mb-2 ${canAfford ? "text-pink-400" : "text-gray-500"}`} />
+          {!reward.image && (
+            <Gift className={`w-8 h-8 mb-2 ${canAfford ? "text-pink-400" : "text-gray-500"}`} />
+          )}
           <h3 className="text-lg font-bold text-white">{reward.title}</h3>
           {reward.description && (
             <p className="mt-1 text-sm text-gray-400">{reward.description}</p>

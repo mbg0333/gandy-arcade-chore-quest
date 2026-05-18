@@ -15,6 +15,7 @@ export async function createReward(formData: {
   title: string;
   description?: string;
   cost: number;
+  image?: string;
 }) {
   await verifyAdmin();
 
@@ -27,6 +28,7 @@ export async function createReward(formData: {
       title: formData.title,
       description: formData.description,
       cost: formData.cost,
+      image: formData.image,
     },
   });
 
@@ -47,6 +49,7 @@ export async function updateReward(
     title: string;
     description?: string;
     cost: number;
+    image?: string;
   }
 ) {
   await verifyAdmin();
@@ -61,6 +64,7 @@ export async function updateReward(
       title: formData.title,
       description: formData.description,
       cost: formData.cost,
+      image: formData.image,
     },
   });
 

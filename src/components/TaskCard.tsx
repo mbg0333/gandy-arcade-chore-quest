@@ -19,6 +19,50 @@ export default function TaskCard({ task }: TaskCardProps) {
   const [proofType, setProofType] = useState<string>("");
   const [uploadingProof, setUploadingProof] = useState(false);
 
+  // Parse custom bundle logic
+  let displayDescription = task.description || "";
+  let subtasksList: string[] = [];
+  let isTaskBundle = false;
+
+  try {
+    if (task.description && task.description.startsWith("{")) {
+      const parsed = JSON.parse(task.description);
+      if (parsed.description !== undefined && Array.isArray(parsed.subtasks)) {
+        isTaskBundle = true;
+        displayDescription = parsed.description;
+        subtasksList = parsed.subtasks;
+      }
+    }
+  } catch (e) {
+    // Standard description
+  }
+
+  // Load / Store checked subtasks checklist progress
+  const [checkedSubtasks, setCheckedSubtasks] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(`task_progress_${task.id}`);
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const handleSubtaskToggle = (subtask: string) => {
+    const updated = checkedSubtasks.includes(subtask)
+      ? checkedSubtasks.filter((s) => s !== subtask)
+      : [...checkedSubtasks, subtask];
+    
+    setCheckedSubtasks(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`task_progress_${task.id}`, JSON.stringify(updated));
+    }
+  };
+
+  const allSubtasksDone = !isTaskBundle || subtasksList.every((s) => checkedSubtasks.includes(s));
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -36,10 +80,15 @@ export default function TaskCard({ task }: TaskCardProps) {
   };
 
   const handleComplete = async () => {
+    if (!allSubtasksDone) return;
     setLoading(true);
     const result = await submitTask(task.id, notes, proofData || undefined, proofType || undefined);
     if (result.success) {
       setSuccess(true);
+      // Clean progress from localStorage
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(`task_progress_${task.id}`);
+      }
     }
     setLoading(false);
   };
@@ -81,9 +130,16 @@ export default function TaskCard({ task }: TaskCardProps) {
           <span className={cn("text-xs font-bold uppercase tracking-wider", colorClass.split(" ")[0])}>
             {task.category}
           </span>
-          <h3 className="mt-1 text-lg font-bold text-white">{task.title}</h3>
-          {task.description && (
-            <p className="mt-1 text-sm text-gray-400 line-clamp-1">{task.description}</p>
+          <h3 className="mt-1 text-lg font-bold text-white flex items-center gap-2">
+            {task.title}
+            {isTaskBundle && (
+              <span className="px-1.5 py-0.5 text-[9px] font-arcade font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 rounded">
+                BUNDLE
+              </span>
+            )}
+          </h3>
+          {displayDescription && (
+            <p className="mt-1 text-sm text-gray-400 line-clamp-1">{displayDescription}</p>
           )}
         </div>
         
@@ -101,8 +157,56 @@ export default function TaskCard({ task }: TaskCardProps) {
             exit={{ height: 0, opacity: 0 }}
             className="flex flex-col gap-4 mt-4 overflow-hidden"
           >
-            {task.description && (
-              <p className="text-sm text-gray-300">{task.description}</p>
+            {displayDescription && (
+              <p className="text-sm text-gray-300">{displayDescription}</p>
+            )}
+
+            {isTaskBundle && subtasksList.length > 0 && (
+              <div className="flex flex-col gap-3 p-3 bg-black/40 border border-gray-800 rounded-lg">
+                <div className="flex items-center justify-between border-b border-gray-800/80 pb-2">
+                  <span className="text-[10px] uppercase font-bold text-gray-500 font-arcade">📦 Bundle checklist</span>
+                  <span className="text-xs font-bold text-cyan-400 font-arcade">
+                    {checkedSubtasks.length} / {subtasksList.length} DONE
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-gray-900 h-2 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-cyan-500 transition-all duration-300"
+                    style={{ width: `${(checkedSubtasks.length / subtasksList.length) * 100}%` }}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2 mt-1">
+                  {subtasksList.map((sub, i) => {
+                    const isChecked = checkedSubtasks.includes(sub);
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSubtaskToggle(sub)}
+                        className={cn(
+                          "flex items-center gap-2.5 p-2.5 rounded-lg border text-left text-xs font-bold transition-all cursor-pointer",
+                          isChecked 
+                            ? "bg-cyan-950/20 border-cyan-500/50 text-white" 
+                            : "bg-black/60 border-gray-800 text-gray-400 hover:text-white"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          readOnly
+                          className="w-4 h-4 text-cyan-500 border-gray-700 bg-black rounded focus:ring-cyan-500 focus:ring-2 pointer-events-none"
+                        />
+                        <span className={cn(isChecked && "line-through text-gray-500")}>
+                          {sub}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
             
             <textarea
@@ -162,10 +266,13 @@ export default function TaskCard({ task }: TaskCardProps) {
             
             <button
               onClick={handleComplete}
-              disabled={loading || uploadingProof}
-              className="w-full py-3 text-lg font-bold text-black uppercase transition-all bg-green-500 hover:bg-green-400 rounded-lg box-neon-green font-arcade disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || uploadingProof || !allSubtasksDone}
+              className={cn(
+                "w-full py-3 text-lg font-bold text-black uppercase transition-all rounded-lg font-arcade disabled:opacity-50 disabled:cursor-not-allowed",
+                allSubtasksDone ? "bg-green-500 hover:bg-green-400 box-neon-green" : "bg-gray-800 text-gray-500 border border-gray-700/50"
+              )}
             >
-              {loading ? "Submitting..." : "Mark Complete"}
+              {loading ? "Submitting..." : allSubtasksDone ? "Mark Complete" : "Complete checklist to submit"}
             </button>
           </motion.div>
         )}

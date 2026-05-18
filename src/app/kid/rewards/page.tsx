@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import RewardCard from "@/components/RewardCard";
+import QuickExchangeTerminal from "@/components/QuickExchangeTerminal";
 
 export default async function KidRewards() {
   const session = await getSession();
@@ -27,6 +28,9 @@ export default async function KidRewards() {
           Economy Rule: 50 🪙 = $1.00 Cash = 10 Min Screen Time
         </div>
       </div>
+
+      {/* Quick Cash & Time Incrementor Terminal */}
+      <QuickExchangeTerminal kidCoins={kid.coins} />
 
       {rewards.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 text-center bg-black/40 rounded-xl">

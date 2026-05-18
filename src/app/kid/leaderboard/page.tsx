@@ -48,6 +48,23 @@ export default async function KidLeaderboard() {
           >
             <div className="flex items-center gap-4">
               <div className="w-10 flex justify-center">{getBadge(idx)}</div>
+              
+              {kid.profilePic ? (
+                <div className="relative w-12 h-12 rounded-full border-2 border-yellow-400 bg-black overflow-hidden shadow-[0_0_10px_rgba(234,179,8,0.5)] flex-shrink-0">
+                  <img
+                    src={kid.profilePic}
+                    alt={kid.name}
+                    className="w-full h-full object-cover brightness-110 contrast-125 saturate-150 grayscale-[10%] sepia-[10%] hue-rotate-15"
+                  />
+                  {/* Scanline CRT overlay */}
+                  <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[size:100%_3px,2px_100%] pointer-events-none" />
+                </div>
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-yellow-950 border-2 border-yellow-550/30 flex items-center justify-center font-arcade font-bold text-yellow-500 text-lg uppercase shadow-[0_0_5px_rgba(234,179,8,0.2)] flex-shrink-0">
+                  {kid.name.charAt(0)}
+                </div>
+              )}
+
               <div>
                 <h3 className="text-2xl font-black font-arcade tracking-wider uppercase">
                   {kid.name}

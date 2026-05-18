@@ -94,7 +94,7 @@ function SidebarLinks({ pendingCount, isMobile }: { pendingCount: number; isMobi
     { href: "/admin/approvals", label: "Approvals", icon: ShieldAlert, color: "text-yellow-400", badge: pendingCount },
     { href: "/admin/tasks", label: "Quests", icon: ListTodo, color: "text-green-400" },
     { href: "/admin/rewards", label: "Prizes", icon: Gift, color: "text-pink-400" },
-    { href: "/admin/kids", label: "Kids", icon: Users, color: "text-purple-400" },
+    { href: "/admin/kids", label: "Control Room", icon: Users, color: "text-purple-400" },
     { href: "/admin/transactions", label: "Ledger", icon: History, color: "text-blue-400" },
   ];
 

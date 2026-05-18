@@ -37,6 +37,10 @@ export default function AdminTasksConsole({ tasks, kids }: { tasks: any[]; kids:
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Subtask Checklist states
+  const [isBundle, setIsBundle] = useState(false);
+  const [subtasks, setSubtasks] = useState<string[]>([]);
+
   const handleOpenNew = () => {
     setEditingTask(null);
     setTitle("");
@@ -45,6 +49,8 @@ export default function AdminTasksConsole({ tasks, kids }: { tasks: any[]; kids:
     setRewardAmount(50);
     setIsRepeat(false);
     setSelectedKids([]);
+    setIsBundle(false);
+    setSubtasks([]);
     setError("");
     setIsOpen(true);
   };
@@ -52,7 +58,27 @@ export default function AdminTasksConsole({ tasks, kids }: { tasks: any[]; kids:
   const handleOpenEdit = (task: Task) => {
     setEditingTask(task);
     setTitle(task.title);
-    setDescription(task.description || "");
+    
+    let isTaskBundle = false;
+    let taskSubtasks: string[] = [];
+    let displayDescription = task.description || "";
+
+    try {
+      if (task.description && task.description.startsWith("{")) {
+        const parsed = JSON.parse(task.description);
+        if (parsed.description !== undefined && Array.isArray(parsed.subtasks)) {
+          isTaskBundle = true;
+          displayDescription = parsed.description;
+          taskSubtasks = parsed.subtasks;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to parse task description as bundle JSON:", e);
+    }
+
+    setIsBundle(isTaskBundle);
+    setSubtasks(taskSubtasks);
+    setDescription(displayDescription);
     setCategory(task.category);
     setRewardAmount(task.rewardAmount);
     setIsRepeat(task.isRepeat);
@@ -74,12 +100,24 @@ export default function AdminTasksConsole({ tasks, kids }: { tasks: any[]; kids:
       return;
     }
 
+    if (isBundle && subtasks.filter((s) => s.trim() !== "").length === 0) {
+      setError("Quest bundles require at least one sub-task checklist item.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
+    const finalDescription = isBundle
+      ? JSON.stringify({ 
+          description, 
+          subtasks: subtasks.filter((s) => s.trim() !== "") 
+        })
+      : description;
+
     const payload = {
       title,
-      description,
+      description: finalDescription,
       category,
       rewardAmount,
       isRepeat,
@@ -93,18 +131,20 @@ export default function AdminTasksConsole({ tasks, kids }: { tasks: any[]; kids:
       result = await createTask(payload);
     }
 
-    setLoading(false);
-
+    setLoading(true); // Keep spinner until reload
     if (result.error) {
       setError(result.error);
+      setLoading(false);
     } else {
       setIsOpen(false);
+      window.location.reload();
     }
   };
 
   const handleDelete = async (taskId: string) => {
     if (!confirm("Are you sure you want to delete this quest?")) return;
     await deleteTask(taskId);
+    window.location.reload();
   };
 
   const categoryColors: Record<string, string> = {
@@ -160,6 +200,36 @@ export default function AdminTasksConsole({ tasks, kids }: { tasks: any[]; kids:
                 </div>
               )}
 
+              {!editingTask && tasks.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs uppercase font-bold text-gray-400">Load Quest Template (Optional)</label>
+                  <select
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      if (selectedId) {
+                        const template = tasks.find((t) => t.id === selectedId);
+                        if (template) {
+                          setTitle(template.title);
+                          setDescription(template.description || "");
+                          setCategory(template.category);
+                          setRewardAmount(template.rewardAmount);
+                          setIsRepeat(template.isRepeat);
+                        }
+                      }
+                    }}
+                    className="p-3 text-white bg-black border border-gray-700 rounded-lg focus:outline-none focus:border-cyan-500 font-bold"
+                    defaultValue=""
+                  >
+                    <option value="">-- Start from Scratch --</option>
+                    {tasks.map((task) => (
+                      <option key={task.id} value={task.id}>
+                        {task.title} ({task.category} - {task.rewardAmount} Coins)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="flex flex-col gap-1">
                 <label className="text-xs uppercase font-bold text-gray-400">Quest Name</label>
                 <input
@@ -181,6 +251,74 @@ export default function AdminTasksConsole({ tasks, kids }: { tasks: any[]; kids:
                   className="p-3 text-white bg-black border border-gray-700 rounded-lg focus:outline-none focus:border-cyan-500 resize-none"
                   rows={2}
                 />
+              </div>
+
+              {/* Quest Bundle Checklist Builder */}
+              <div className="flex flex-col gap-2 p-3 bg-black/40 border border-gray-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isBundleToggle"
+                      checked={isBundle}
+                      onChange={(e) => {
+                        setIsBundle(e.target.checked);
+                        if (e.target.checked && subtasks.length === 0) {
+                          setSubtasks([""]);
+                        }
+                      }}
+                      className="w-4 h-4 text-cyan-500 border-gray-700 bg-black rounded focus:ring-cyan-500 focus:ring-2 cursor-pointer"
+                    />
+                    <label htmlFor="isBundleToggle" className="text-xs uppercase font-bold text-gray-300 cursor-pointer select-none">
+                      📦 Make this a Quest Bundle
+                    </label>
+                  </div>
+                  {isBundle && (
+                    <span className="text-[10px] text-cyan-400 font-arcade uppercase"> Checklist Quest </span>
+                  )}
+                </div>
+
+                {isBundle && (
+                  <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-gray-800/80">
+                    <label className="text-[10px] uppercase font-bold text-gray-400">Bundle Sub-Tasks Checklist</label>
+                    <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1">
+                      {subtasks.map((taskStr, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <span className="text-xs font-arcade text-gray-500 w-5 text-right">{index + 1}.</span>
+                          <input
+                            type="text"
+                            placeholder="e.g. Empty all trash bins"
+                            value={taskStr}
+                            onChange={(e) => {
+                              const copy = [...subtasks];
+                              copy[index] = e.target.value;
+                              setSubtasks(copy);
+                            }}
+                            className="w-full p-2 text-xs text-white bg-black border border-gray-800 rounded focus:outline-none focus:border-cyan-500"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSubtasks(prev => prev.filter((_, i) => i !== index));
+                            }}
+                            className="p-1.5 text-red-500 hover:bg-red-950/40 rounded transition-colors cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSubtasks(prev => [...prev, ""])}
+                      className="mt-1 w-full py-2 text-[10px] font-bold text-cyan-400 hover:text-cyan-300 border border-dashed border-cyan-800 hover:border-cyan-600 rounded bg-cyan-950/10 uppercase transition-all cursor-pointer"
+                    >
+                      + Add Sub-Task Item
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -250,6 +388,24 @@ export default function AdminTasksConsole({ tasks, kids }: { tasks: any[]; kids:
       <div className="grid gap-4 md:grid-cols-2">
         {tasks.map((task) => {
           const colorClass = categoryColors[task.category] || "text-gray-400 border-gray-500";
+          
+          let displayDescription = task.description || "";
+          let taskSubtasks: string[] = [];
+          let isTaskBundle = false;
+
+          try {
+            if (task.description && task.description.startsWith("{")) {
+              const parsed = JSON.parse(task.description);
+              if (parsed.description !== undefined && Array.isArray(parsed.subtasks)) {
+                isTaskBundle = true;
+                displayDescription = parsed.description;
+                taskSubtasks = parsed.subtasks;
+              }
+            }
+          } catch (e) {
+            // Keep default
+          }
+
           return (
             <div
               key={task.id}
@@ -266,9 +422,28 @@ export default function AdminTasksConsole({ tasks, kids }: { tasks: any[]; kids:
                   </div>
                 </div>
 
-                <h3 className="text-xl font-bold text-white mt-2">{task.title}</h3>
-                {task.description && (
-                  <p className="text-sm text-gray-400 mt-1">{task.description}</p>
+                <h3 className="text-xl font-bold text-white mt-2 flex items-center gap-2">
+                  {task.title}
+                  {isTaskBundle && (
+                    <span className="px-1.5 py-0.5 text-[9px] font-arcade font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 rounded">
+                      BUNDLE
+                    </span>
+                  )}
+                </h3>
+                {displayDescription && (
+                  <p className="text-sm text-gray-400 mt-1">{displayDescription}</p>
+                )}
+
+                {isTaskBundle && taskSubtasks.length > 0 && (
+                  <div className="mt-3 p-2.5 bg-black/30 border border-gray-900 rounded-lg flex flex-col gap-1.5">
+                    <span className="text-[9px] uppercase font-bold text-gray-500 tracking-wider">Sub-Tasks Checklist:</span>
+                    {taskSubtasks.map((sub, i) => (
+                      <div key={i} className="flex items-center gap-1.5 text-xs text-gray-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                        <span>{sub}</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
 
                 <div className="flex flex-wrap gap-1.5 mt-4">
